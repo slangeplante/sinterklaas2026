@@ -176,10 +176,12 @@
 <body>
 
 <canvas id="stage" tabindex="0" aria-label="3D surprise: a campervan built from bricks. Drag to rotate."></canvas>
-<div class="loading" id="loading">Still building…</div>
+<div class="loading" id="loading">The Piets are still building…</div>
 
 <header>
   <span class="eyebrow">Sinterklaas Eve · 5 December</span>
+  <h1>A surprise from Sinterklaas</h1>
+  <p class="sub">Cut, taped and colored in Piet's workshop.</p>
 </header>
 
 <div class="hint">
@@ -195,7 +197,7 @@
         <div class="divider" aria-hidden="true"></div>
         <div class="address-side">
           <div class="top-row">
-            <h2 class="card-label" id="poemTitle">Postcard<small>Par avion · Spain → NL</small></h2>
+            <h2 class="card-label" id="poemTitle">Postcard<small>Par avion · Spain → NZ</small></h2>
             <div class="stamp" aria-hidden="true">
               <div class="stamp-inner">
                 <span>Sint Post</span>
@@ -223,26 +225,38 @@
 <script>
 /* ===== The poem: replace these verses with your own text ===== */
 const POEM = [
-  ["Sinterklaas sat in his study, deep in thought:",
-   "what gift for this friend should this year be bought?",
-   "A scarf, or a book, or some chocolate treats?",
-   "No, the Saint knew much better than socks or sweets!"],
-  ["For this friend, as the Saint has long known well,",
-   "builds with bricks for hours, as if under a spell.",
-   "A crane or a tractor, a van with a bed,",
-   "in yellow and blue and a bright shade of red."],
-  ["So Piet got to work with the bricks in his hand,",
-   "and built him a camper, the finest in the land.",
-   "With a bed and a door, in red, yellow and blue,",
-   "made especially, my dear friend, just for you."],
-  ["It won't fit in your shoe, it won't stand on a shelf,",
-   "it rolls across your screen all by itself.",
-   "So spin it around, every window and wheel,",
-   "and plan a road trip! says the Saint. It's a deal!"]
+  [`Sinterklaas sat in Madrid with his book,`,
+   `and said to his Piet: "Come and have a quick look.`,
+   `There's one friend this year who's been hard to keep track,`,
+   `he packed up a van and he's not coming back!"`],
+  [`"Not back?" Piet replied, "Sint, now don't make a fuss,`,
+   `he's just in New Zealand, he'll fly home to us.`,
+   `He'll land back in Norway, all tanned and all smug,`,
+   `before New Year's Eve, just in time for a hug."`],
+  [`The Sint's big red book has a page about you:`,
+   `it says you play LEGO, which grown men don't do!`,
+   `You stop in the street when a crane passes by,`,
+   `and stare at a dump truck with love in your eye.`],
+  [`At the gym, so says Piet, you lift and you train,`,
+   `you're built like a truck, with the arms of a crane.`,
+   `But Piet also saw that between every set,`,
+   `your eyes drift to men... not the dumbbells, I bet!`],
+  [`Now you're driving New Zealand in camper-van style,`,
+   `past sheep and volcanoes, mile after mile.`,
+   `Do the Kiwi boys wave when you drive by the bay?`,
+   `The Sint hopes you waved back at least once a day!`],
+  [`So Piet built a camper from cardboard and tape,`,
+   `just like your own, only much smaller in shape.`,
+   `No gym and no crane, and no men, I'm afraid,`,
+   `but it's colored by hand, the best gift ever made!`],
+  [`Enjoy every mile, then come home through the snow,`,
+   `to Norway, before the New Year's fireworks go.`,
+   `And save us the stories, the wild and the true:`,
+   `the Sint and his Piet will be waiting for you!`]
 ];
-const SIGNATURE = "Chris";
+const SIGNATURE = "Sint & Piet";
 const SIGN_NOTE = "Sinterklaas Eve 2026";
-const ADDRESS = ["To: Sam", "The Camper Van", "Christchurch, New Zealand"];
+const ADDRESS = ["To: my dear friend", "Somewhere in a camper van", "New Zealand"];
 /* =================================================================== */
 
 (function renderPoem(){
