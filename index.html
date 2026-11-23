@@ -526,11 +526,10 @@ function init(){
     brick(0.2, 0.2, 1.2, mat.blue, 5.88, 2.8, s * 1.9, { studs: false });      // front pillars
   });
   brick(3, 4, 0.4, mat.blue, 4.5, 4.0, 0, { studs: false });             // roof, top 4.4
-  // grille + headlights
-  brick(0.1, 2.0, 0.8, mat.dark, 6.03, 1.8, 0, { studs: false });
+  // headlights
   [-1.45, 1.45].forEach(z => {
-    const l = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.12, 20), mat.lamp);
-    l.rotation.z = Math.PI / 2; l.position.set(6.04, 2.25, z); truck.add(l);
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 24), mat.lamp);
+    l.rotation.z = Math.PI / 2; l.position.set(5.99, 2.25, z); truck.add(l);
   });
 
   /* ---------- camper floor ---------- */
@@ -562,13 +561,11 @@ function init(){
     win.position.set(-2.4, 4.2, s * 1.97); truck.add(win);
   });
 
-  // entry door (red) with a handle and step
-  const doorPanel = shadowy(new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 0.08), boxMats(C.red, 1.4, 2.6, 0.08)));
-  doorPanel.position.set(1.65, 3.4, 2.03); truck.add(doorPanel);
-  const dh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.2, 12), mat.yellow);
-  dh.rotation.x = Math.PI / 2; dh.position.set(1.12, 3.3, 2.13); truck.add(dh);
-  const step = shadowy(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.4), boxMats(C.light, 1.2, 0.12, 0.4)));
-  step.position.set(1.65, 1.75, 2.15); truck.add(step);
+  // entry door (red) with a handle
+  const doorPanel = shadowy(new THREE.Mesh(new THREE.BoxGeometry(1.4, 3.1, 0.04), boxMats(C.red, 1.4, 3.1, 0.04)));
+  doorPanel.position.set(1.65, 3.15, 1.97); truck.add(doorPanel);
+  const dh = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16), studMats(C.yellow));
+  dh.rotation.x = Math.PI / 2; dh.position.set(1.12, 3.3, 1.995); truck.add(dh);
 
 
 
