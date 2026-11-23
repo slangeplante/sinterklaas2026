@@ -176,16 +176,14 @@
 <body>
 
 <canvas id="stage" tabindex="0" aria-label="3D surprise: a campervan built from bricks. Drag to rotate."></canvas>
-<div class="loading" id="loading">The Piets are still building…</div>
+<div class="loading" id="loading">Still building…</div>
 
 <header>
   <span class="eyebrow">Sinterklaas Eve · 5 December</span>
-  <h1>A surprise from Sinterklaas</h1>
-  <p class="sub">Built brick by brick in Piet's workshop.</p>
 </header>
 
 <div class="hint">
-  <span class="pill"><span class="dot" aria-hidden="true"></span><span id="hintText">Drag to rotate · tap the red hatch</span></span>
+  <span class="pill"><span class="dot" aria-hidden="true"></span><span id="hintText">Drag to rotate · tap the blue back doors</span></span>
   <button class="fallback" id="openBtn" type="button">Can't open it? Show the poem</button>
 </div>
 
@@ -217,7 +215,7 @@
         </div>
       </div>
     </div>
-    <button class="close" id="closeBtn" type="button">Close hatch</button>
+    <button class="close" id="closeBtn" type="button">Close doors</button>
   </article>
 </div>
 
@@ -242,9 +240,9 @@ const POEM = [
    "So spin it around, every window and wheel,",
    "and plan a road trip! says the Saint. It's a deal!"]
 ];
-const SIGNATURE = "Sint & Piet";
+const SIGNATURE = "Chris";
 const SIGN_NOTE = "Sinterklaas Eve 2026";
-const ADDRESS = ["To: my dear friend", "Brick Lane 5", "The Netherlands"];
+const ADDRESS = ["To: Sam", "The Camper Van", "Christchurch, New Zealand"];
 /* =================================================================== */
 
 (function renderPoem(){
@@ -297,21 +295,136 @@ function init(){
   scene.add(rim);
 
   /* ---------- materials ---------- */
-  const mat = {};
+  /* ---------- cardboard, marker and tape materials ---------- */
   const srgb = (hex) => new THREE.Color(hex).convertSRGBToLinear();
-  const plastic = (hex) => new THREE.MeshStandardMaterial({ color: srgb(hex), roughness: 0.32, metalness: 0.0 });
-  mat.red = plastic(0xb40000);
-  mat.blue = plastic(0x1e5aa8);
-  mat.yellow = plastic(0xfac80a);
-  mat.black = plastic(0x1b2a34);
-  mat.dark = plastic(0x646464);
-  mat.light = plastic(0x969696);
-  mat.white = plastic(0xf4f4f4);
-  mat.green = plastic(0x00852b);
-  mat.glass = new THREE.MeshStandardMaterial({ color: srgb(0xa9dcf5), roughness: 0.05, transparent: true, opacity: 0.45 });
-  mat.lamp = new THREE.MeshStandardMaterial({ color: srgb(0xfff2a8), emissive: srgb(0xffd34d), emissiveIntensity: 0.6, roughness: 0.2 });
-  mat.tail = new THREE.MeshStandardMaterial({ color: srgb(0xff4040), emissive: srgb(0xb00000), emissiveIntensity: 0.5, roughness: 0.2 });
-  mat.hole = new THREE.MeshBasicMaterial({ color: 0x0a0a10 });
+  const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
+  const KRAFT = '#c79d6b';
+  const PPU = 56;                                     // texture pixels per stud unit
+  function rng(seed){ let s = (seed >>> 0) || 1; return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296); }
+  function hashStr(str){ let h = 2166136261; for (const c of str) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
+
+  function paintKraft(g, W, H, r){
+    g.fillStyle = KRAFT; g.fillRect(0, 0, W, H);
+    const n = Math.max(40, (W * H) / 140);
+    for (let i = 0; i < n; i++) {                     // paper fibres and specks
+      const x = r() * W, y = r() * H, l = 2 + r() * 9, a = r() * Math.PI;
+      g.strokeStyle = r() < 0.5 ? 'rgba(90,60,30,.16)' : 'rgba(255,235,200,.18)';
+      g.lineWidth = 0.6 + r();
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+    }
+  }
+  function paintMarker(g, W, H, color, r){
+    const lw = Math.max(7, PPU * 0.3);
+    const inset = () => 1 + r() * 4;
+    g.save();
+    g.beginPath(); g.rect(inset(), inset(), W - 2 * inset(), H - 2 * inset()); g.clip();
+    g.strokeStyle = color; g.lineCap = 'round'; g.lineWidth = lw;
+    const a = -0.62 + r() * 0.2, dx = Math.cos(a), dy = Math.sin(a), px = -dy, py = dx;
+    const R = Math.hypot(W, H) / 2 + lw, cx = W / 2, cy = H / 2;
+    for (let t = -R; t < R; t += lw * (0.55 + r() * 0.3)) {
+      g.globalAlpha = 0.62 + r() * 0.28;
+      const ox = cx + px * t, oy = cy + py * t, wob = (r() - 0.5) * 3;
+      g.beginPath(); g.moveTo(ox - dx * R, oy - dy * R + wob); g.lineTo(ox + dx * R, oy + dy * R - wob); g.stroke();
+    }
+    g.restore(); g.globalAlpha = 1;
+  }
+  function paintOutline(g, W, H, r){
+    const lw = Math.max(3, PPU * 0.075), m = lw * 0.9 + 1;
+    g.strokeStyle = '#17140f'; g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = lw; g.globalAlpha = 0.92;
+    const edge = (x0, y0, x1, y1) => {
+      const len = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / len, uy = (y1 - y0) / len;
+      const o0 = r() * lw * 1.6, o1 = r() * lw * 1.6, steps = Math.max(2, Math.round(len / 14));
+      g.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const t = -o0 + (len + o0 + o1) * i / steps, j = (r() - 0.5) * 1.6;
+        const x = x0 + ux * t - uy * j, y = y0 + uy * t + ux * j;
+        i ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.stroke();
+    };
+    edge(m, m, W - m, m); edge(W - m, m, W - m, H - m); edge(W - m, H - m, m, H - m); edge(m, H - m, m, m);
+    g.globalAlpha = 1;
+  }
+  const texCache = new Map();
+  function cardTex(color, wu, hu, outline){
+    const W = Math.min(1024, Math.max(24, Math.round(wu * PPU))), H = Math.min(1024, Math.max(24, Math.round(hu * PPU)));
+    const key = `${color}|${W}|${H}|${outline}`;
+    if (texCache.has(key)) return texCache.get(key);
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), r = rng(hashStr(key));
+    paintKraft(g, W, H, r);
+    if (color) paintMarker(g, W, H, color, r);
+    if (outline) paintOutline(g, W, H, r);
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = MAX_ANISO;
+    texCache.set(key, t); return t;
+  }
+  const matCache = new Map();
+  function cardMat(color, wu = 1, hu = 1, outline = false, extra = {}){
+    const key = `${color}|${wu.toFixed(2)}|${hu.toFixed(2)}|${outline}|${JSON.stringify(extra)}`;
+    if (!extra.noCache && matCache.has(key)) return matCache.get(key);
+    const { noCache, ...props } = extra;
+    const m = new THREE.MeshStandardMaterial(Object.assign({ map: cardTex(color, wu, hu, outline), roughness: 0.95, metalness: 0 }, props));
+    m.userData.hex = color;
+    if (!extra.noCache) matCache.set(key, m);
+    return m;
+  }
+  // box faces in BoxGeometry order: +x, -x, +y, -y, +z, -z
+  function boxMats(color, w, h, d){
+    const sx = cardMat(color, d, h, true), sy = cardMat(color, w, d, true), sz = cardMat(color, w, h, true);
+    return [sx, sx, sy, sy, sz, sz];
+  }
+  const studCache = new Map();
+  function studMats(color){
+    if (studCache.has(color)) return studCache.get(color);
+    const S = 64, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d'), r = rng(hashStr('stud' + color));
+    paintKraft(g, S, S, r);
+    g.save(); g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 4, 0, Math.PI * 2); g.clip();
+    paintMarker(g, S, S, color, r); g.restore();
+    g.strokeStyle = '#17140f'; g.lineWidth = 3.2; g.globalAlpha = 0.9;
+    g.beginPath(); g.arc(S / 2 + 0.6, S / 2 - 0.4, S / 2 - 4.5, 0.2, Math.PI * 2 + 0.45); g.stroke(); g.globalAlpha = 1;
+    const top = new THREE.CanvasTexture(c); top.encoding = THREE.sRGBEncoding; top.anisotropy = MAX_ANISO;
+    const topMat = new THREE.MeshStandardMaterial({ map: top, roughness: 0.95 });
+    const res = [cardMat(color, 1.9, 0.2, false), topMat, topMat];
+    studCache.set(color, res); return res;
+  }
+
+  const C = { red: '#d3261d', blue: '#2361c4', yellow: '#f4c81a', black: '#26221d', dark: '#5d5a55', light: '#a9a7a2', white: '#f6f1e4', green: '#2e9a45' };
+  const mat = {};
+  Object.entries(C).forEach(([k, v]) => { mat[k] = cardMat(v, 1, 1, false); });
+  mat.glass = new THREE.MeshStandardMaterial({ color: srgb(0xd8eef7), roughness: 0.25, transparent: true, opacity: 0.35 });
+  mat.lamp = cardMat('#ffe27a', 0.6, 0.6, true, { emissive: srgb(0xffd34d), emissiveIntensity: 0.35, noCache: true });
+  mat.tail = cardMat(C.red, 0.5, 0.3, true, { emissive: srgb(0xb00000), emissiveIntensity: 0.25, noCache: true });
+  mat.hole = new THREE.MeshBasicMaterial({ color: 0x1a120a });
+
+  // masking tape: translucent beige with torn ends
+  const tapeTex = (() => {
+    const W = 256, H = 64, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), r = rng(77);
+    g.beginPath(); g.moveTo(6, 0);
+    for (let y = 0; y <= H; y += 6) g.lineTo(2 + r() * 8, y);
+    for (let y = H; y >= 0; y -= 6) g.lineTo(W - 2 - r() * 8, y);
+    g.closePath(); g.fillStyle = 'rgba(236,222,178,.82)'; g.fill();
+    g.save(); g.clip();
+    for (let i = 0; i < 26; i++) {            // crinkles
+      g.strokeStyle = r() < 0.5 ? 'rgba(150,120,70,.18)' : 'rgba(255,250,230,.35)'; g.lineWidth = 1;
+      const x = r() * W; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (r() - 0.5) * 30, H); g.stroke();
+    }
+    g.restore();
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = MAX_ANISO; return t;
+  })();
+  const tapeMat = new THREE.MeshStandardMaterial({ map: tapeTex, transparent: true, roughness: 0.55, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  const tapeGeo = new THREE.PlaneGeometry(1, 1);
+  // normal: 'px','nx','py','nz','pz' ; rot = angle in the face plane; len along the strip
+  function tape(parent, len, wid, x, y, z, normal, rot = 0){
+    const o = new THREE.Group(); o.position.set(x, y, z);
+    if (normal === 'px') o.rotation.y = Math.PI / 2;
+    if (normal === 'nx') o.rotation.y = -Math.PI / 2;
+    if (normal === 'nz') o.rotation.y = Math.PI;
+    if (normal === 'py') o.rotation.x = -Math.PI / 2;
+    const m = new THREE.Mesh(tapeGeo, tapeMat); m.scale.set(len, wid, 1); m.rotation.z = rot; m.receiveShadow = true;
+    o.add(m); parent.add(o); return o;
+  }
 
   const studGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 20);
   const truck = new THREE.Group();
@@ -322,13 +435,15 @@ function init(){
   // brick: w along x, d along z, h height; (x,z) centre, y bottom
   function brick(w, d, h, m, x, y, z, opts = {}){
     const g = new THREE.Group();
-    const box = shadowy(new THREE.Mesh(new THREE.BoxGeometry(w - 0.04, h, d - 0.04), m));
+    const hex = m.userData && m.userData.hex;
+    const box = shadowy(new THREE.Mesh(new THREE.BoxGeometry(w - 0.04, h, d - 0.04), hex ? boxMats(hex, w - 0.04, h, d - 0.04) : m));
     box.position.y = h / 2;
     g.add(box);
     if (opts.studs !== false) {
+      const sm = hex ? studMats(hex) : m;
       const nx = Math.round(w), nz = Math.round(d);
       for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
-        const s = shadowy(new THREE.Mesh(studGeo, m));
+        const s = shadowy(new THREE.Mesh(studGeo, sm));
         s.position.set(-w / 2 + 0.5 + i, h + 0.1, -d / 2 + 0.5 + j);
         g.add(s);
       }
@@ -338,80 +453,73 @@ function init(){
     return g;
   }
 
-  /* ---------- baseplate ---------- */
-  const baseW = 22, baseD = 16;
-  const base = new THREE.Mesh(new THREE.BoxGeometry(baseW, 0.3, baseD), mat.green);
-  base.position.y = -0.15; base.receiveShadow = true;
-  scene.add(base);
-  const baseStuds = new THREE.InstancedMesh(studGeo, mat.green, baseW * baseD);
-  const dummy = new THREE.Object3D(); let k = 0;
-  for (let i = 0; i < baseW; i++) for (let j = 0; j < baseD; j++) {
-    dummy.position.set(-baseW / 2 + 0.5 + i, 0.1, -baseD / 2 + 0.5 + j);
-    dummy.updateMatrix(); baseStuds.setMatrixAt(k++, dummy.matrix);
-  }
-  baseStuds.receiveShadow = true;
-  scene.add(baseStuds);
+  /* ---------- ground: invisible, only catches the van's shadow ---------- */
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.28 }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
+  scene.add(ground);
 
-  /* ---------- wheels: rubber tyre with tread + grey rim with axle hole ---------- */
+  /* ---------- wheels: simple cardboard discs ---------- */
   const wheels = [];
-  const V2 = (x, y) => new THREE.Vector2(x, y);
-  const lathe = (pts, seg = 40) => new THREE.LatheGeometry(pts, seg);
-  const tyreGeo = lathe([
-    V2(0.60, -0.38), V2(0.78, -0.41), V2(0.86, -0.39), V2(0.905, -0.34), V2(0.92, -0.26),
-    V2(0.92, 0.26), V2(0.905, 0.34), V2(0.86, 0.39), V2(0.78, 0.41), V2(0.60, 0.38), V2(0.60, -0.38)
-  ], 48);
-  const treadGeo = new THREE.BoxGeometry(0.11, 0.3, 0.17);
-  const rimGeo = lathe([
-    V2(0.24, 0.30), V2(0.38, 0.30), V2(0.42, 0.25), V2(0.52, 0.25), V2(0.56, 0.33),
-    V2(0.62, 0.34), V2(0.62, -0.34), V2(0.56, -0.33), V2(0.52, -0.25), V2(0.24, -0.25), V2(0.24, 0.30)
-  ]);
-  const hubGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.8, 28);
-  const crossGeo = new THREE.BoxGeometry(0.26, 0.04, 0.07);
-  const ringGeo = new THREE.TorusGeometry(0.47, 0.025, 6, 40);
-  const rimMat = plastic(0xa0a5a9);
-  const tyreMat = new THREE.MeshStandardMaterial({ color: srgb(0x1b2a34), roughness: 0.75, side: THREE.DoubleSide });
-  const holeMat = new THREE.MeshBasicMaterial({ color: 0x0a0d10 });
-  const N = 20;
+  const wheelFace = (() => {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d'), r = rng(4242);
+    paintKraft(g, S, S, r);
+    const ring = (rad, color) => { g.save(); g.beginPath(); g.arc(S / 2, S / 2, rad, 0, Math.PI * 2); g.clip(); paintMarker(g, S, S, color, r); g.restore(); };
+    ring(S / 2 - 6, C.black);
+    g.fillStyle = KRAFT; g.beginPath(); g.arc(S / 2, S / 2, S * 0.29, 0, Math.PI * 2); g.fill();
+    ring(S * 0.29, C.blue);
+    g.strokeStyle = '#17140f'; g.lineWidth = 7; g.lineCap = 'round';
+    g.beginPath(); g.arc(S / 2 + 1, S / 2, S / 2 - 7, 0.1, Math.PI * 2 + 0.3); g.stroke();
+    g.beginPath(); g.arc(S / 2, S / 2 + 1, S * 0.29, 0.4, Math.PI * 2 + 0.55); g.stroke();
+    g.fillStyle = '#17140f'; g.beginPath(); g.arc(S / 2, S / 2, 9, 0, Math.PI * 2); g.fill();
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = MAX_ANISO;
+    return new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 });
+  })();
+  const wheelGeo = new THREE.CylinderGeometry(0.92, 0.92, 0.7, 40);
+  const wheelMats = [cardMat(C.black, 5.8, 0.7, true), wheelFace, wheelFace];
   [4.3, -3.6].forEach(x => [-1, 1].forEach(side => {
-    const w = new THREE.Group();
-    const inner = new THREE.Group(); inner.rotation.x = Math.PI / 2; w.add(inner); // local +y points out of the truck
-    inner.add(shadowy(new THREE.Mesh(tyreGeo, tyreMat)));
-    for (let i = 0; i < N; i++) for (const row of [-1, 1]) {
-      const a = (i + (row > 0 ? 0.5 : 0)) / N * Math.PI * 2;
-      const t = shadowy(new THREE.Mesh(treadGeo, tyreMat));
-      t.position.set(Math.cos(a) * 0.93, row * 0.17, Math.sin(a) * 0.93);
-      t.rotation.y = -a;
-      inner.add(t);
-    }
-    inner.add(shadowy(new THREE.Mesh(rimGeo, rimMat)));
-    const hub = shadowy(new THREE.Mesh(hubGeo, rimMat)); hub.position.y = -0.02; inner.add(hub);
-    const lip = new THREE.Mesh(ringGeo, rimMat); lip.rotation.x = Math.PI / 2; lip.position.y = 0.3; inner.add(lip);
-    [0, Math.PI / 2].forEach(r => {           // cross-shaped axle hole
-      const c = new THREE.Mesh(crossGeo, holeMat); c.rotation.y = r; c.position.y = 0.39; inner.add(c);
-    });
-    if (side < 0) w.rotation.y = Math.PI;
-    w.position.set(x, 0.95, side * 2.15);
+    const w = shadowy(new THREE.Mesh(wheelGeo, wheelMats));
+    w.rotation.x = Math.PI / 2;
+    w.position.set(x, 0.92, side * 2.15);
     truck.add(w); wheels.push(w);
   }));
 
   /* ---------- chassis ---------- */
   brick(12, 4, 0.4, mat.red, 0, 1.2, 0);              // chassis plate, top 1.6
 
+  // silver marker windows: grey-silver streaks with bright glints, a bit shiny
+  function silverMat(wu, hu){
+    const W = Math.max(24, Math.round(wu * PPU)), H = Math.max(24, Math.round(hu * PPU));
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), r = rng(hashStr(`silver|${W}|${H}`));
+    paintKraft(g, W, H, r);
+    paintMarker(g, W, H, '#d3d7dd', r);
+    g.save(); g.lineCap = 'round';
+    for (let i = 0; i < Math.max(2, W / 40); i++) {     // glints
+      const x = r() * W, y = r() * H, l = 10 + r() * Math.min(W, H) * 0.5;
+      g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2 + r() * 4;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + l * 0.8, y - l * 0.6); g.stroke();
+    }
+    g.restore();
+    paintOutline(g, W, H, r);
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = MAX_ANISO;
+    return new THREE.MeshStandardMaterial({ map: t, roughness: 0.3, metalness: 0.2 });
+  }
+  function silverBox(w, h, d){
+    const sx = silverMat(d, h), sy = silverMat(w, d), sz = silverMat(w, h);
+    return [sx, sx, sy, sy, sz, sz];
+  }
   /* ---------- cab (blue) ---------- */
   brick(3, 4, 1.2, mat.blue, 4.5, 1.6, 0);             // lower cab, top 2.8
   brick(1, 4, 1.2, mat.blue, 3.5, 2.8, 0, { studs: false }); // back wall
-  const glassFront = shadowy(new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 3.6), mat.glass));
+  const glassFront = shadowy(new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 3.6), silverBox(0.2, 1.2, 3.6)));
   glassFront.position.set(5.88, 3.4, 0); truck.add(glassFront);
   [-1, 1].forEach(s => {
-    const side = new THREE.Mesh(new THREE.BoxGeometry(1.95, 1.2, 0.2), mat.glass);
+    const side = shadowy(new THREE.Mesh(new THREE.BoxGeometry(1.95, 1.2, 0.2), silverBox(1.95, 1.2, 0.2)));
     side.position.set(4.98, 3.4, s * 1.88); truck.add(side);
     brick(0.2, 0.2, 1.2, mat.blue, 5.88, 2.8, s * 1.9, { studs: false });      // front pillars
   });
-  brick(0.8, 1.2, 0.6, mat.black, 4.2, 2.8, 0.8, { studs: false });          // seat
-  brick(0.3, 0.3, 0.7, mat.black, 5.0, 2.8, 0.8, { studs: false });          // steering column
-  const wheelRing = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.06, 8, 20), mat.black);
-  wheelRing.position.set(5.0, 3.5, 0.8); wheelRing.rotation.y = Math.PI / 2; wheelRing.rotation.x = 0.5; truck.add(wheelRing);
-  brick(3, 4, 0.4, mat.blue, 4.5, 4.0, 0);             // roof, top 4.4
+  brick(3, 4, 0.4, mat.blue, 4.5, 4.0, 0, { studs: false });             // roof, top 4.4
   // grille + headlights
   brick(0.1, 2.0, 0.8, mat.dark, 6.03, 1.8, 0, { studs: false });
   [-1.45, 1.45].forEach(z => {
@@ -420,23 +528,16 @@ function init(){
   });
 
   /* ---------- camper floor ---------- */
-  brick(9, 4, 0.4, mat.red, -1.5, 1.6, 0);             // floor, top 2.0
-  [-1.2, 1.2].forEach(z => {
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.5), mat.tail);
-    t.position.set(-6.03, 1.4, z); truck.add(t);
-  });
 
-  /* ---------- living box (yellow with a red stripe) ---------- */
-  brick(9, 4, 0.8, mat.yellow, -1.5, 2.0, 0, { studs: false });
-  brick(9, 4, 0.4, mat.red, -1.5, 2.8, 0, { studs: false });       // stripe
+  /* ---------- living box (yellow) ---------- */
+  brick(9, 4, 1.6, mat.yellow, -1.5, 1.6, 0, { studs: false });
   brick(9, 4, 2.0, mat.yellow, -1.5, 3.2, 0, { studs: false });    // top 5.2
   brick(2, 4, 0.8, mat.yellow, 4.0, 4.4, 0, { studs: false });     // sleeping alcove over the cab
-  brick(11, 4, 0.4, mat.red, -0.5, 5.2, 0);                        // roof, top 5.6
-  brick(2, 2, 0.4, mat.glass, -3.0, 5.6, 0);                       // skylight
-  const alcoveGlass = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.45, 2.8), mat.glass);
-  alcoveGlass.position.set(5.0, 4.8, 0); truck.add(alcoveGlass);
+  brick(11, 4, 0.4, mat.red, -0.5, 5.2, 0, { studs: false });                        // roof, top 5.6
+  const alcoveGlass = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.45, 2.8), silverBox(0.04, 0.45, 2.8));
+  alcoveGlass.position.set(4.97, 4.8, 0); truck.add(alcoveGlass);
 
-  const interior = new THREE.MeshStandardMaterial({ color: srgb(0x1d2b45), roughness: 0.9 });
+  const interior = new THREE.MeshStandardMaterial({ color: srgb(0x2c2117), roughness: 1 });
   function camperWindow(x, side, w, y = 4.15, h = 0.9){
     const z = side * 2.0;
     const back = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.02), interior);
@@ -448,75 +549,74 @@ function init(){
     const glass = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.05), mat.glass);
     glass.position.set(x, y, z + side * 0.045); truck.add(glass);
   }
-  camperWindow(-0.6, 1, 1.8);
-  camperWindow(-4.0, -1, 2.0); camperWindow(-0.6, -1, 1.8); camperWindow(1.65, -1, 1.2);
-  // rear window
-  const rb = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.9, 1.4), interior); rb.position.set(-6.005, 4.15, 0.4); truck.add(rb);
-  const rg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.9, 1.4), mat.glass); rg.position.set(-6.045, 4.15, 0.4); truck.add(rg);
 
-  // entry door (blue) with a small window, handle and step
-  const doorPanel = shadowy(new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 0.08), mat.blue));
+  // one large silver-marker window on each side of the living box
+  [1, -1].forEach(s => {
+    const win = shadowy(new THREE.Mesh(new THREE.BoxGeometry(5.8, 1.2, 0.04), silverBox(5.8, 1.2, 0.04)));
+    win.position.set(-2.4, 4.2, s * 1.97); truck.add(win);
+  });
+
+  // entry door (red) with a handle and step
+  const doorPanel = shadowy(new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 0.08), boxMats(C.red, 1.4, 2.6, 0.08)));
   doorPanel.position.set(1.65, 3.4, 2.03); truck.add(doorPanel);
-  const dwb = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.55, 0.02), interior); dwb.position.set(1.65, 4.15, 2.075); truck.add(dwb);
-  const dwg = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.55, 0.04), mat.glass); dwg.position.set(1.65, 4.15, 2.1); truck.add(dwg);
   const dh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.2, 12), mat.yellow);
   dh.rotation.x = Math.PI / 2; dh.position.set(1.12, 3.3, 2.13); truck.add(dh);
-  const step = shadowy(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.4), mat.light));
+  const step = shadowy(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.4), boxMats(C.light, 1.2, 0.12, 0.4)));
   step.position.set(1.65, 1.75, 2.15); truck.add(step);
 
-  // rolled-up awning above the door side
-  const awning = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 4.6, 20), mat.blue));
-  awning.rotation.z = Math.PI / 2; awning.position.set(0.3, 5.0, 2.14); truck.add(awning);
-  [-2.0, 2.6].forEach(x => {
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.12, 20), mat.white);
-    cap.rotation.z = Math.PI / 2; cap.position.set(x, 5.0, 2.14); truck.add(cap);
+
+
+  // masking tape over the seams
+  [1, -1].forEach(s => {
+    const n = s > 0 ? 'pz' : 'nz', zf = s * 1.995;
+    tape(truck, 0.8, 0.3, 3.0, 2.35, zf, n, s * 0.06);           // cab to living box
+    tape(truck, 0.8, 0.3, 3.0, 3.65, zf, n, -s * 0.05);
+    (s > 0 ? [-4.6] : [-5.0, -2.4, 0.6, 2.4]).forEach((x, i) => {  // roof to walls, wrapping over the edge
+      tape(truck, 0.62, 0.3, x, 5.22, zf, n, Math.PI / 2 + (i % 2 ? 0.08 : -0.06));
+      tape(truck, 0.34, 0.3, x, 5.605, s * 1.84, 'py', Math.PI / 2);
+    });
+    tape(truck, 0.45, 0.26, 4.995, 4.62, s * 1.3, 'px', Math.PI / 2 + s * 0.1); // alcove front
   });
+  tape(truck, 0.62, 0.3, -5.995, 5.22, 0.6, 'nx', Math.PI / 2);       // back
 
-  // ladder and spare wheel on the back
-  [-1.65, -1.05].forEach(z => {
-    const rail = shadowy(new THREE.Mesh(new THREE.BoxGeometry(0.07, 3.6, 0.07), mat.black));
-    rail.position.set(-6.12, 3.8, z); truck.add(rail);
+  /* ---------- the surprise: rear double doors ---------- */
+  const DOOR_Y = 3.5, DOOR_H = 2.6, LEAF_W = 1.56;
+
+  // dark opening behind the doors
+  const hole = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 2.5), mat.hole);
+  hole.rotation.y = -Math.PI / 2; hole.position.set(-5.99, DOOR_Y, 0); truck.add(hole);
+
+  // door texture: red marker on cardboard with a sharpie question mark
+  const tc = document.createElement('canvas'); tc.width = 160; tc.height = 266;
+  const cx = tc.getContext('2d'); const dr = rng(512);
+  paintKraft(cx, 160, 266, dr); paintMarker(cx, 160, 266, C.blue, dr); paintOutline(cx, 160, 266, dr);
+  cx.save(); cx.translate(80, 128); cx.scale(0.8, 0.8); cx.translate(-130, -100);
+  cx.strokeStyle = '#17140f'; cx.lineWidth = 19; cx.lineCap = 'round'; cx.lineJoin = 'round';
+  cx.beginPath(); cx.moveTo(92, 72); cx.quadraticCurveTo(96, 34, 130, 34);
+  cx.bezierCurveTo(172, 34, 176, 78, 150, 94); cx.quadraticCurveTo(127, 108, 128, 134); cx.stroke();
+  cx.fillStyle = '#17140f'; cx.beginPath(); cx.arc(129, 163, 12, 0, Math.PI * 2); cx.fill();
+  cx.restore();
+  const doorTex = new THREE.CanvasTexture(tc); doorTex.encoding = THREE.sRGBEncoding; doorTex.anisotropy = MAX_ANISO;
+  const doorFace = new THREE.MeshStandardMaterial({ map: doorTex, roughness: 0.95, emissive: 0x3a6dff, emissiveIntensity: 0 });
+  const doorSide = cardMat(C.blue, LEAF_W, 0.1, true, { emissive: 0x3a6dff, emissiveIntensity: 0, noCache: true });
+  const doorGeo = new THREE.BoxGeometry(0.1, DOOR_H, LEAF_W);
+  const doorMats = [doorSide, doorFace, doorSide, doorSide, doorSide, doorSide];   // face -x is the outside
+
+  const hatchTargets = [];
+  const leaves = [1, -1].map(s => {            // s = +1: hinge on the +z edge, s = -1: hinge on the -z edge
+    const hinge = new THREE.Group(); hinge.position.set(-5.98, DOOR_Y, s * 1.6); truck.add(hinge);
+    const leaf = shadowy(new THREE.Mesh(doorGeo, doorMats));
+    leaf.position.set(-0.07, 0, -s * 0.79); hinge.add(leaf);
+    const knob = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.22, 14), studMats(C.yellow)));
+    knob.rotation.z = Math.PI / 2; knob.position.set(-0.17, -0.1, -s * 1.42); hinge.add(knob);
+    // hinged with masking tape
+    [0.8, -0.8].forEach(y => {
+      tape(hinge, 0.3, 0.45, -0.125, y, -s * 0.13, 'nx');
+      tape(truck, 0.3, 0.45, -5.995, DOOR_Y + y, s * 1.76, 'nx');
+    });
+    hatchTargets.push(leaf, knob);
+    return hinge;
   });
-  for (let y = 2.3; y < 5.6; y += 0.45) {
-    const rung = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.6), mat.black);
-    rung.position.set(-6.12, y, -1.35); truck.add(rung);
-  }
-  const spare = shadowy(new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.2, 12, 28), mat.black));
-  spare.rotation.y = Math.PI / 2; spare.position.set(-6.25, 2.9, 0.75); truck.add(spare);
-  const spareHub = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.2, 20), mat.light);
-  spareHub.rotation.z = Math.PI / 2; spareHub.position.set(-6.25, 2.9, 0.75); truck.add(spareHub);
-
-  /* ---------- the surprise hatch ---------- */
-
-  // dark opening behind the door
-  const hole = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.55), mat.hole);
-  hole.position.set(-4.0, 3.2, 2.0); truck.add(hole);
-
-  // door texture with a question mark
-  const tc = document.createElement('canvas'); tc.width = 256; tc.height = 200;
-  const cx = tc.getContext('2d');
-  cx.fillStyle = "#b40000"; cx.fillRect(0, 0, 256, 200);
-  cx.strokeStyle = 'rgba(0,0,0,.22)'; cx.lineWidth = 8; cx.strokeRect(10, 10, 236, 180);
-  cx.fillStyle = '#ffffff'; cx.font = 'bold 150px "Arial Rounded MT Bold", Arial, sans-serif';
-  cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('?', 128, 108);
-  const doorTex = new THREE.CanvasTexture(tc); doorTex.encoding = THREE.sRGBEncoding;
-  const doorFace = new THREE.MeshStandardMaterial({ map: doorTex, roughness: 0.32, emissive: 0xff2020, emissiveIntensity: 0 });
-  const doorSide = new THREE.MeshStandardMaterial({ color: srgb(0xb40000), roughness: 0.32, emissive: 0xff2020, emissiveIntensity: 0 });
-
-  const hinge = new THREE.Group();
-  hinge.position.set(-5.15, 3.2, 2.1);
-  truck.add(hinge);
-  const doorW = 2.3, doorH = 1.8;
-  const door = shadowy(new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, 0.16),
-    [doorSide, doorSide, doorSide, doorSide, doorFace, doorSide]));
-  door.position.x = doorW / 2; hinge.add(door);
-  const knob = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.25, 14), mat.yellow));
-  knob.rotation.x = Math.PI / 2; knob.position.set(doorW - 0.28, 0, 0.15); hinge.add(knob);
-  [0.55, -0.55].forEach(y => {
-    const h = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.4, 10), mat.dark);
-    h.position.set(0.02, y, 0.05); hinge.add(h);
-  });
-  const hatchTargets = [door, knob];
 
   // the poem postcard hidden inside
   const pcCanvas = document.createElement('canvas'); pcCanvas.width = 512; pcCanvas.height = 320;
@@ -575,7 +675,7 @@ function init(){
   const pcPaper = new THREE.MeshStandardMaterial({ color: srgb(0xfffdf6), roughness: 0.8 });
   const scroll = shadowy(new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 0.03),
     [pcPaper, pcPaper, pcPaper, pcPaper, new THREE.MeshStandardMaterial({ map: pcTex, roughness: 0.8 }), pcPaper]));
-  scroll.position.set(-4.0, 3.1, 1.4); scroll.visible = false;
+  scroll.position.set(-5.2, 3.4, 0); scroll.rotation.order = "YXZ"; scroll.rotation.y = -Math.PI / 2; scroll.visible = false;
   truck.add(scroll);
 
   truck.position.x = -0.2;
@@ -685,7 +785,7 @@ function init(){
     backdrop.classList.remove('open');
     hatchGoal = 0; scrollGoal = 0;
     setTimeout(() => { isOpen = false; }, 600);
-    hintText.textContent = 'Read it again? Tap the hatch';
+    hintText.textContent = 'Read it again? Tap the back doors';
     canvas.focus({ preventScroll: true });
   }
   window.__openHatch = openHatch; window.__closePoem = closePoem;
@@ -702,12 +802,13 @@ function init(){
 
     const ease = 1 - Math.pow(0.001, dt);
     hatchAngle += (hatchGoal - hatchAngle) * ease * 1.4;
-    hinge.rotation.y = -hatchAngle * 1.95;
+    leaves[0].rotation.y = hatchAngle * 1.9;
+    leaves[1].rotation.y = -hatchAngle * 1.9;
     scrollT += (scrollGoal - scrollT) * ease * (scrollGoal ? 0.9 : 2);
-    scroll.position.z = 1.4 + scrollT * 1.6;
-    scroll.position.y = 3.1 + scrollT * 0.9 + (scrollT > 0.6 && !reduceMotion ? Math.sin(t * 3) * 0.06 : 0);
+    scroll.position.x = -5.2 - scrollT * 1.8;
+    scroll.position.y = 3.4 + scrollT * 0.8 + (scrollT > 0.6 && !reduceMotion ? Math.sin(t * 3) * 0.06 : 0);
     scroll.rotation.x = -scrollT * 0.35;
-    scroll.rotation.y = scrollT * 0.15;
+    scroll.rotation.y = -Math.PI / 2 + scrollT * 0.15;
     if (scrollGoal === 0 && scrollT < 0.02) scroll.visible = false;
 
     const glow = isOpen || reduceMotion ? 0 : (Math.sin(t * 3.2) * 0.5 + 0.5) * 0.45;
